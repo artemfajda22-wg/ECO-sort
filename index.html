@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Еко-Сортування 🇺🇦</title>
+  <style>
+    :root {
+      --bg-grad: linear-gradient(135deg, #e0f7fa 0%, #c8e6c9 100%);
+      --text-main: #2e7d32;
+      --card-bg: #ffffff;
+      --card-text: #424242;
+      --card-border: #e0e0e0;
+      --shadow-light: rgba(0,0,0,0.08);
+      --shadow-medium: rgba(0,0,0,0.15);
+      --overlay-bg: rgba(0,0,0,0.75);
+      --item-bg: #ffffff;
+      --items-area-bg: rgba(255,255,255,0.8);
+      --tooltip-bg: #333;
+      --tooltip-text: #fff;
+      --disabled-bg: #ccc;
+      --disabled-text: #777;
+      --highlight: #43a047;
+    }
+    body.dark {
+      --bg-grad: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      --text-main: #4ade80;
+      --card-bg: #1e293b;
+      --card-text: #cbd5e1;
+      --card-border: #334155;
+      --shadow-light: rgba(0,0,0,0.4);
+      --shadow-medium: rgba(0,0,0,0.6);
+      --overlay-bg: rgba(0,0,0,0.85);
+      --item-bg: #334155;
+      --items-area-bg: rgba(30,41,59,0.9);
+      --tooltip-bg: #f1f5f9;
+      --tooltip-text: #0f172a;
+      --disabled-bg: #475569;
+      --disabled-text: #94a3b8;
+      --highlight: #22c55e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-grad);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      color: var(--text-main);
+      user-select: none;
+      overflow-x: hidden;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+    h1 { margin: 15px 0; font-size: 1.8rem; text-align: center; }
+    
+    .top-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      width: 100%; max-width: 800px; margin-bottom: 10px; gap: 8px; flex-wrap: wrap;
+      z-index: 10; position: relative;
+    }
+    .stat-box, .btn-icon, .level-badge {
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      padding: 8px 14px; border-radius: 16px;
+      box-shadow: 0 4px 12px var(--shadow-light);
+      font-weight: 600; font-size: 1rem;
+      display: flex; align-items: center; gap: 6px; white-space: nowrap;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+    .lives { color: #e53935; }
+    .timer { color: #3b82f6; }
+    .timer.warning { animation: pulse 1s infinite; color: #ef4444; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    
+    .controls { display: flex; gap: 8px; align-items: center; }
+    .btn-icon { 
+      width: 40px; height: 40px; cursor: pointer; font-size: 1.2rem; position: relative;
+      transition: all 0.2s ease;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .btn-icon:hover { transform: scale(1.05); background: var(--card-bg); filter: brightness(0.95); }
+    
+    /* ✅ Універсальний tooltip без дублювання з title */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute; bottom: -40px; left: 50%; transform: translateX(-50%);
+      background: var(--tooltip-bg); color: var(--tooltip-text);
+      padding: 7px 12px; border-radius: 6px;
+      font-size: 0.78rem; white-space: nowrap; pointer-events: none;
+      opacity: 0; transition: opacity 0.2s ease; z-index: 50;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    [data-tooltip]:hover::after { opacity: 1; }
+    
+    .level-badge { cursor: default; background: transparent; border: 1px dashed var(--card-border); }
+    
+    .instructions {
+      background: var(--card-bg); padding: 12px 16px; border-radius: 12px;
+      margin-bottom: 15px; max-width: 800px; text-align: center;
+      box-shadow: 0 4px 12px var(--shadow-light);
+      font-size: 0.95rem; line-height: 1.4; width: 100%; color: var(--card-text);
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+    
+    .game-area {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 25px; width: 100%; max-width: 800px; transition: filter 0.3s ease;
+    }
+    .game-area.blurred { filter: blur(4px) brightness(0.85); pointer-events: none; }
+    
+    .bins { 
+      display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;
+      margin-top: 30px;
+    }
+    .bin {
+      width: 95px; height: 130px; border-radius: 12px;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: flex-end; padding-bottom: 10px;
+      color: white; font-weight: 600; font-size: 0.85rem; text-align: center;
+      cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 6px 16px var(--shadow-medium); position: relative;
+    }
+    .bin:hover { transform: translateY(-3px); box-shadow: 0 10px 24px var(--shadow-medium); }
+    .bin:active { transform: translateY(0); }
+    .bin.paper { background: linear-gradient(145deg, #90caf9, #64b5f6); }
+    .bin.plastic { background: linear-gradient(145deg, #ffab91, #ff8a65); }
+    .bin.glass { background: linear-gradient(145deg, #a5d6a7, #81c784); }
+    .bin.organic { background: linear-gradient(145deg, #aed581, #9ccc65); }
+    .bin.metal { background: linear-gradient(145deg, #bcaaa4, #a1887f); }
+    .bin-icon { font-size: 2.2rem; margin-bottom: 6px; }
+    .bin.correct-flash { animation: flashGreen 0.4s ease; }
+    .bin.wrong-shake { animation: shake 0.3s ease; }
+    
+    @keyframes flashGreen { 0%, 100% { box-shadow: 0 6px 16px var(--shadow-medium); } 50% { box-shadow: 0 0 25px rgba(67,160,71,0.8); transform: scale(1.03); } }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+    
+    .items-area {
+      display: flex; flex-wrap: wrap; justify-content: center;
+      gap: 12px; min-height: 90px; padding: 18px;
+      background: var(--items-area-bg); border-radius: 16px; width: 100%;
+      transition: background 0.3s ease;
+    }
+    .item {
+      width: 68px; height: 68px; background: var(--item-bg); border-radius: 12px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: grab; box-shadow: 0 4px 10px var(--shadow-light);
+      transition: transform 0.15s ease, opacity 0.3s ease, background 0.3s ease;
+      font-size: 0.75rem; text-align: center; padding: 4px; color: var(--card-text);
+    }
+    .item:active { cursor: grabbing; }
+    .item:hover { transform: scale(1.04); box-shadow: 0 6px 16px var(--shadow-medium); }
+    .item.dragging { opacity: 0.75; transform: scale(1.08); z-index: 100; }
+    .item-icon { font-size: 1.6rem; margin-bottom: 3px; }
+    .item.removing { transform: scale(0.7); opacity: 0; }
+    
+    .feedback {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      padding: 14px 28px; border-radius: 14px; color: white;
+      font-weight: 600; font-size: 1.2rem; z-index: 1000;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      pointer-events: none; opacity: 0; box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+    }
+    .feedback.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    .feedback.correct { background: linear-gradient(135deg, #43a047, #2e7d32); }
+    .feedback.wrong { background: linear-gradient(135deg, #e53935, #c62828); }
+    
+    .eco-fact {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.95);
+      background: var(--card-bg); padding: 28px 32px; border-radius: 20px;
+      max-width: 95%; width: 650px; text-align: center;
+      box-shadow: 0 16px 50px var(--overlay-bg); z-index: 1150;
+      opacity: 0; pointer-events: none; transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .eco-fact.show { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+    .eco-fact-title { color: var(--text-main); font-weight: 700; margin-bottom: 12px; font-size: 1.4rem; }
+    .eco-fact-text { color: var(--card-text); line-height: 1.6; margin-bottom: 20px; font-size: 1.25rem; }
+    .eco-fact-close {
+      background: var(--highlight); color: white; border: none; padding: 12px 30px;
+      border-radius: 25px; cursor: pointer; font-weight: 700; font-size: 1rem; transition: background 0.2s ease;
+    }
+    .eco-fact-close:hover { background: #1b5e20; }
+    
+    .overlay {
+      position: fixed; inset: 0; background: var(--overlay-bg);
+      display: flex; justify-content: center; align-items: center;
+      z-index: 2000; padding: 20px; backdrop-filter: blur(4px);
+      transition: background 0.3s ease;
+    }
+    .overlay-card {
+      background: var(--card-bg); padding: 30px; border-radius: 24px; text-align: center;
+      max-width: 480px; width: 100%; box-shadow: 0 20px 60px var(--overlay-bg);
+      transition: background 0.3s ease;
+    }
+    .overlay-title { font-size: 1.8rem; color: var(--text-main); margin-bottom: 10px; font-weight: 700; }
+    .overlay-desc { color: var(--card-text); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5; }
+    .level-selector { display: flex; gap: 10px; justify-content: center; margin-bottom: 25px; flex-wrap: wrap; }
+    .level-btn {
+      background: transparent; border: 2px solid var(--card-border); padding: 10px 18px;
+      border-radius: 12px; cursor: pointer; font-weight: 600; color: var(--card-text); transition: all 0.2s ease;
+    }
+    .level-btn:hover { background: var(--items-area-bg); border-color: var(--text-main); }
+    .level-btn.active { border-color: #43a047; background: #e8f5e9; color: #2e7d32; box-shadow: 0 0 0 3px rgba(67,160,71,0.2); }
+    .start-btn, .restart-btn {
+      background: #2e7d32; color: white; border: none; padding: 14px 40px;
+      border-radius: 30px; font-size: 1.1rem; font-weight: 700; cursor: pointer;
+      transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(46,125,50,0.3);
+    }
+    .start-btn:hover, .restart-btn:hover { background: #1b5e20; transform: translateY(-2px); }
+    .start-btn:disabled { background: var(--disabled-bg); color: var(--disabled-text); cursor: not-allowed; transform: none; box-shadow: none; }
+    
+    .game-over-title { font-size: 1.5rem; color: var(--text-main); margin-bottom: 15px; font-weight: 600; }
+    .game-over-stats { margin: 20px 0; font-size: 1.1rem; color: var(--card-text); }
+    .stats-list { list-style: none; text-align: left; margin: 15px 0; font-size: 0.9rem; color: var(--card-text); background: var(--items-area-bg); padding: 12px; border-radius: 12px; }
+    .stats-list li { margin-bottom: 6px; display: flex; justify-content: space-between; }
+    .top-scores { margin-top: 15px; font-size: 0.9rem; color: var(--card-text); }
+    .top-scores ul { list-style: none; padding: 0; margin-top: 5px; }
+    .top-scores li { background: var(--items-area-bg); margin: 4px 0; padding: 8px; border-radius: 8px; display: flex; justify-content: space-between; }
+
+    .copy-btn {
+      background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 8px;
+      cursor: pointer; font-weight: 600; margin-top: 10px; transition: background 0.2s;
+    }
+    .copy-btn:hover { background: #2563eb; }
+
+    @media (max-width: 600px) {
+      .bin { width: 75px; height: 110px; font-size: 0.75rem; }
+      .bin-icon { font-size: 1.8rem; }
+      .item { width: 60px; height: 60px; font-size: 0.7rem; }
+      .item-icon { font-size: 1.4rem; }
+      h1 { font-size: 1.4rem; }
+      .stat-box, .level-badge { font-size: 0.9rem; padding: 6px 10px; }
+      .eco-fact { width: 95%; padding: 20px; }
+      .eco-fact-text { font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Екран старту -->
+  <div class="overlay" id="start-screen">
+    <div class="overlay-card">
+      <div class="overlay-title">♻️ Еко-Сортування</div>
+      <div class="overlay-desc">Перетягуй сміття у правильні контейнери!<br>Не витрачай час і не роби помилок — бережи життя та екологію 🌍</div>
+      <div class="level-selector" id="level-selector">
+        <button class="level-btn" data-level="easy">🟢 Легкий (❤️5)</button>
+        <button class="level-btn" data-level="medium">🟡 Середній (❤️4)</button>
+        <button class="level-btn" data-level="hard">🔴 Складний (❤️3)</button>
+      </div>
+      <div class="top-scores" id="top-scores-display"></div>
+      <button class="start-btn" id="start-btn" disabled>🚀 Почати гру</button>
+      <button class="copy-btn" id="widget-btn">📦 Отримати код віджета</button>
+    </div>
+  </div>
+
+  <h1>♻️ Еко-Сортування</h1>
+  <div class="instructions">Сортуй предмети правильно та швидко! 🌿</div>
+  
+  <div class="top-bar">
+    <div class="stat-box lives">❤️ <span id="lives">5</span></div>
+    <div class="stat-box timer">⏱️ <span id="timer">60</span>с</div>
+    <div class="level-badge" id="level-badge">Оберіть рівень</div>
+    <div class="stat-box score" data-tooltip="Відсортовано">⭐ <span id="score">0</span></div>
+    <div class="controls">
+      <button class="btn-icon" id="upload-btn" data-tooltip="Завантажити власні Еко-факти">📁</button>
+      <input type="file" id="facts-file" accept=".json" style="display:none;">
+      
+      <button class="btn-icon" id="items-upload-btn" data-tooltip="Завантажити власні предмети">🗑️</button>
+      <input type="file" id="items-file" accept=".json" style="display:none;">
+      
+      <button class="btn-icon" id="theme-btn" data-tooltip="Темна тема">🌓</button>
+    </div>
+  </div>
+  
+  <div class="game-area" id="game-area">
+    <div class="bins">
+      <div class="bin paper" data-type="paper"><div class="bin-icon">🗂️</div>Папір</div>
+      <div class="bin plastic" data-type="plastic"><div class="bin-icon">🥤</div>Пластик</div>
+      <div class="bin glass" data-type="glass"><div class="bin-icon">🥃</div>Скло</div>
+      <div class="bin organic" data-type="organic"><div class="bin-icon">🍎</div>Органіка</div>
+      <div class="bin metal" data-type="metal"><div class="bin-icon">🥫</div>Метал</div>
+    </div>
+    <div class="items-area" id="items-area"></div>
+  </div>
+  
+  <div class="feedback" id="feedback"></div>
+  
+  <div class="eco-fact" id="eco-fact">
+    <div class="eco-fact-title">🌱 Еко-факт</div>
+    <div class="eco-fact-text" id="eco-fact-text"></div>
+    <button class="eco-fact-close" id="eco-fact-close">Зрозуміло!</button>
+  </div>
+  
+  <div class="overlay game-over" id="game-over" style="display:none;">
+    <div class="overlay-card">
+      <div class="game-over-title" id="game-over-title">🎉 Час вийшов!</div>
+      <div class="game-over-stats">
+        Відсортовано: <strong id="final-score">0</strong> | Рівень: <strong id="final-level">-</strong>
+      </div>
+      <div id="error-analytics"></div>
+      <button class="restart-btn" id="restart-btn">🔄 Грати знову</button>
+    </div>
+  </div>
+
+  <script>
+    const LEVELS = {
+      easy: { name: "Легкий", icon: "🟢", items: 5, time: 60, lives: 5 },
+      medium: { name: "Середній", icon: "🟡", items: 7, time: 45, lives: 4 },
+      hard: { name: "Складний", icon: "🔴", items: 9, time: 30, lives: 3 }
+    };
+
+    const defaultWasteItems = [
+      { id: 1, name: "Газета", type: "paper", icon: "📰" },
+	  { id: 2, name: "Зошит", type: "paper", icon: "📓" },
+      { id: 3, name: "Картон", type: "paper", icon: "📦" },
+	  { id: 4, name: "Конверт", type: "paper", icon: "✉️" },
+      { id: 5, name: "Журнал", type: "paper", icon: "📖" },
+	  { id: 6, name: "Чек", type: "paper", icon: "🧾" },
+      { id: 7, name: "Коробка", type: "paper", icon: "🗃️" },
+	  { id: 8, name: "Лист А4", type: "paper", icon: "📄" },
+      { id: 9, name: "Пляшка ПЕТ", type: "plastic", icon: "🍼" },
+	  { id: 10, name: "Пакет", type: "plastic", icon: "🛍️" },
+      { id: 11, name: "Контейнер", type: "plastic", icon: "🥡" },
+	  { id: 12, name: "Трубочка", type: "plastic", icon: "🥤" },
+      { id: 13, name: "Диск", type: "plastic", icon: "💿" },
+	  { id: 14, name: "Ручка", type: "plastic", icon: "🖊️" },
+      { id: 15, name: "Флакон", type: "plastic", icon: "🧴" },
+	  { id: 16, name: "Іграшка", type: "plastic", icon: "🧸" },
+      { id: 17, name: "Скляна банка", type: "glass", icon: "🏺" },
+	  { id: 18, name: "Винна пляшка", type: "glass", icon: "🍾" },
+      { id: 19, name: "Склянка", type: "glass", icon: "🥃" },
+	  { id: 20, name: "Ваза", type: "glass", icon: "⚱️" },
+      { id: 21, name: "Графин", type: "glass", icon: "🍶" },
+	  { id: 22, name: "Дитяча баночка", type: "glass", icon: "👶" },
+      { id: 23, name: "Пляшка парфумів", type: "glass", icon: "🌸" },
+	  { id: 24, name: "Окуляри", type: "glass", icon: "👓" },
+      { id: 25, name: "Яблуко", type: "organic", icon: "🍎" },
+	  { id: 26, name: "Лушпиння", type: "organic", icon: "🥔" },
+      { id: 27, name: "Кавова гуща", type: "organic", icon: "☕" },
+	  { id: 28, name: "Шкаралупа", type: "organic", icon: "🥚" },
+      { id: 29, name: "Бананова шкірка", type: "organic", icon: "🍌" },
+	  { id: 30, name: "Опале листя", type: "organic", icon: "🍂" },
+      { id: 31, name: "Кістка", type: "organic", icon: "🦴" },
+	  { id: 32, name: "Огірок", type: "organic", icon: "🥒" },
+      { id: 33, name: "Консерва", type: "metal", icon: "🥫" },
+	  { id: 34, name: "Болт", type: "metal", icon: "🔩" },
+      { id: 35, name: "Фольга", type: "metal", icon: "🍫" },
+	  { id: 36, name: "Ложка", type: "metal", icon: "🥄" },
+      { id: 37, name: "Шпилька", type: "metal", icon: "🧷" },
+	  { id: 38, name: "Сковорода", type: "metal", icon: "🍳" },
+      { id: 39, name: "Банка фарби", type: "metal", icon: "🎨" },
+	  { id: 40, name: "Старий ключ", type: "metal", icon: "🗝️" }
+    ];
+
+    const defaultFacts = [
+      "🗞️ 1 тонна макулатури зберігає 17 дерев!",
+	  "🥤 Пластикова пляшка розкладається до 500 років.",
+      "🏺 Скло можна переробляти нескінченно без втрати якості.",
+	  "🍎 Органічні відходи на звалищі виділяють метан.",
+      "🥫 Алюмінієву банку переробляють за 60 днів!",
+	  "📦 Картон розкладається 2-3 місяці, пластик — століття.",
+      "♻️ Переробка 1 т пластику економить до 1000 л нафти.",
+	  "🌳 Дерева поглинають ~22 кг CO₂ на рік.",
+      "🔋 Одна батарейка забруднює 400 л води.",
+	  "📊 В Україні переробляється лише ~10% відходів.",
+      "👕 Одна джинсова пара вимагає ~7500 л води.",
+	  "📄 Переробка паперу зменшує викиди CO₂ на 37%.",
+      "🌊 Щороку в океан потрапляє 8 млн тонн пластику.",
+	  "🍽️ Багаторазові пакети екологічніші при 100+ використаннях.",
+      "💡 LED-лампи споживають на 75% менше енергії.",
+	  "🚲 1 км на велосипеді замість авто економить ~0.2 кг CO₂.",
+      "📱 Виробництво одного смартфона генерує ~70 кг відходів.",
+	  "☕ Кавова гуща — чудове добриво для рослин.",
+      "🐝 Бджоли запилюють 75% сільськогосподарських культур.",
+	  "🌧️ Кислотні дощі виникають через викиди SO₂ та NOₓ.",
+      "🌿 Компостування зменшує обсяг сміття на 30-50%.",
+	  "📦 Повторне використання коробки економить 91% енергії.",
+      "🌍 Кожна людина генерує в середньому 0.7 кг сміття на день.",
+	  "💧 Переробка паперу економить 50% води.",
+      "♻️ Світова економіка відходів оцінюється в $500 млрд щороку."
+    ];
+
+    let ecoFactsPool = [...defaultFacts];
+    let availableFacts = [];
+    let activeWasteItems = [...defaultWasteItems];
+    let score = 0, lives = 3, timeLeft = 60, timerInterval = null;
+    let draggedItem = null, gameActive = false, audioCtx = null, isMuted = false;
+    let currentLevel = null, mistakeLog = [];
+
+    const itemsArea = document.getElementById('items-area');
+    const bins = document.querySelectorAll('.bin');
+    const scoreEl = document.getElementById('score');
+    const livesEl = document.getElementById('lives');
+    const timerEl = document.getElementById('timer');
+    const timerBox = document.querySelector('.timer');
+    const feedbackEl = document.getElementById('feedback');
+    const ecoFactEl = document.getElementById('eco-fact');
+    const ecoFactText = document.getElementById('eco-fact-text');
+    const levelBadge = document.getElementById('level-badge');
+    const startScreen = document.getElementById('start-screen');
+    const levelSelector = document.getElementById('level-selector');
+    const startBtn = document.getElementById('start-btn');
+    const gameOverEl = document.getElementById('game-over');
+    const restartBtn = document.getElementById('restart-btn');
+    const muteBtn = document.createElement('button'); muteBtn.className = 'btn-icon'; muteBtn.id = 'mute-btn'; muteBtn.textContent = '🔊';
+    const uploadBtn = document.getElementById('upload-btn');
+    const factsFile = document.getElementById('facts-file');
+    const itemsUploadBtn = document.getElementById('items-upload-btn');
+    const itemsFile = document.getElementById('items-file');
+    const gameArea = document.getElementById('game-area');
+    const themeBtn = document.getElementById('theme-btn');
+    const controls = document.querySelector('.controls');
+    const widgetBtn = document.getElementById('widget-btn');
+    controls.appendChild(muteBtn);
+
+    function shuffle(arr) { return arr.sort(() => Math.random() - 0.5); }
+    function initFacts() { availableFacts = shuffle([...ecoFactsPool]); }
+    function getNextFact() { if (availableFacts.length === 0) initFacts(); return availableFacts.pop(); }
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    function playTone(freq, dur, vol=0.12, type='sine') {
+      if (isMuted || !audioCtx) return;
+      const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.frequency.value = freq; osc.type = type;
+      gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
+      osc.start(); osc.stop(audioCtx.currentTime + dur);
+    }
+    function playCorrectSound() { playTone(880, 0.1, 0.1); setTimeout(() => playTone(1100, 0.12, 0.08), 70); }
+    function playWrongSound() { playTone(180, 0.18, 0.08, 'triangle'); }
+    function playGameOverSound() { [523,659,784].forEach((f,i) => setTimeout(() => playTone(f, 0.15, 0.1), i*110)); }
+
+    function startTimer() {
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerEl.textContent = timeLeft;
+        if (timeLeft <= 10) timerBox.classList.add('warning');
+        if (timeLeft <= 0) endGame();
+      }, 1000);
+    }
+    function pauseTimer() { if(timerInterval) clearInterval(timerInterval); }
+    function resumeTimer() { if(gameActive && timeLeft > 0) startTimer(); }
+
+    function getTopConfusedPairs() {
+      const counts = {};
+      mistakeLog.forEach(m => {
+        const key = `${m.itemName} → ${m.correctType} (скинуто в ${m.guessedType})`;
+        counts[key] = (counts[key] || 0) + 1;
+      });
+      return Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 3);
+    }
+
+    function renderAnalytics() {
+      const container = document.getElementById('error-analytics');
+      if (mistakeLog.length === 0) {
+        container.innerHTML = '<div style="color:#4ade80; font-weight:600; margin:10px 0;">🌟 Ідеально! Помилок не було.</div>';
+        return;
+      }
+      const top3 = getTopConfusedPairs();
+      let html = '<div class="stats-list"><strong>📊 Топ помилок за сесію:</strong>';
+      top3.forEach(([pair, count], i) => html += `<li><span>${i+1}. ${pair}</span> <strong>${count}x</strong></li>`);
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function saveScore(level, score) {
+      const key = 'eco-sort-scores';
+      let data = JSON.parse(localStorage.getItem(key)) || { easy: [], medium: [], hard: [] };
+      data[level].push({ score, date: new Date().toLocaleDateString('uk-UA') });
+      data[level].sort((a,b) => b.score - a.score).splice(3);
+      localStorage.setItem(key, JSON.stringify(data));
+      return data[level];
+    }
+
+    function loadTopScores() {
+      const key = 'eco-sort-scores';
+      const data = JSON.parse(localStorage.getItem(key)) || { easy: [], medium: [], hard: [] };
+      const container = document.getElementById('top-scores-display');
+      let html = '<strong>🏆 Топ-3 результати:</strong><ul>';
+      ['easy', 'medium', 'hard'].forEach(lv => {
+        const icon = LEVELS[lv].icon;
+        const scores = data[lv].map(s => `${s.score}⭐`).join(' • ') || '—';
+        html += `<li><span>${icon} ${LEVELS[lv].name}:</span> <strong>${scores}</strong></li>`;
+      });
+      html += '</ul>';
+      container.innerHTML = html;
+    }
+
+    function setupLevelButtons() {
+      levelSelector.querySelectorAll('.level-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          levelSelector.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentLevel = btn.dataset.level;
+          startBtn.disabled = false;
+          levelBadge.textContent = `${LEVELS[currentLevel].icon} ${LEVELS[currentLevel].name}`;
+        });
+      });
+    }
+
+    function initGame() {
+      score = 0; lives = LEVELS[currentLevel].lives; mistakeLog = [];
+      timeLeft = LEVELS[currentLevel].time;
+      scoreEl.textContent = score; livesEl.textContent = lives; 
+      timerEl.textContent = timeLeft; timerBox.classList.remove('warning');
+      gameOverEl.style.display = 'none';
+      gameActive = true; initFacts(); loadNextBatch(); startTimer();
+      initAudio();
+    }
+
+    function loadNextBatch() {
+      if (!gameActive) return;
+      itemsArea.innerHTML = '';
+      shuffle([...activeWasteItems]).slice(0, LEVELS[currentLevel].items)
+        .forEach(item => itemsArea.appendChild(createItemElement(item)));
+    }
+
+    function endGame() {
+      gameActive = false; pauseTimer();
+      saveScore(currentLevel, score);
+      document.getElementById('final-score').textContent = score;
+      document.getElementById('final-level').textContent = `${LEVELS[currentLevel].icon} ${LEVELS[currentLevel].name}`;
+      document.getElementById('game-over-title').textContent = lives > 0 ? '🎉 Час вийшов!' : '💔 Життя закінчились';
+      renderAnalytics();
+      loadTopScores();
+      gameOverEl.style.display = 'flex';
+      if (lives > 0) playGameOverSound();
+    }
+
+    function createItemElement(item) {
+      const el = document.createElement('div');
+      el.className = 'item'; el.draggable = true;
+      el.dataset.type = item.type; el.dataset.id = item.id;
+      el.innerHTML = `<div class="item-icon">${item.icon}</div><div>${item.name}</div>`;
+      
+      el.addEventListener('dragstart', e => { if(!gameActive) return; draggedItem=item; el.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+      el.addEventListener('dragend', () => { el.classList.remove('dragging'); draggedItem=null; });
+      el.addEventListener('touchstart', e => { if(!gameActive) return; draggedItem=item; el.classList.add('dragging'); e.preventDefault(); }, {passive:false});
+      el.addEventListener('touchend', e => {
+        if(!gameActive) return; el.classList.remove('dragging');
+        const t = e.changedTouches[0];
+        const bin = document.elementFromPoint(t.clientX, t.clientY)?.closest('.bin');
+        if(bin) handleDrop(bin, item, el);
+        draggedItem=null; e.preventDefault();
+      }, {passive:false});
+      return el;
+    }
+
+    function handleDrop(bin, item, el) {
+      if (!gameActive) return;
+      const correct = item.type === bin.dataset.type;
+      
+      if (correct) {
+        score++; scoreEl.textContent = score; playCorrectSound();
+        showFeedback("✅ Правильно!", "correct");
+        bin.classList.add('correct-flash'); setTimeout(()=>bin.classList.remove('correct-flash'), 400);
+        el.classList.add('removing'); setTimeout(()=>el.remove(), 300);
+        setTimeout(()=>{
+          if(itemsArea.children.length===0 && gameActive && timeLeft>0 && lives>0) loadNextBatch();
+          openEcoFact(); 
+        }, 350);
+      } else {
+        playWrongSound(); showFeedback("❌ Спробуй інший", "wrong");
+        lives--; livesEl.textContent = lives;
+        mistakeLog.push({ itemName: item.name, correctType: item.type, guessedType: bin.dataset.type });
+        bin.classList.add('wrong-shake'); setTimeout(()=>bin.classList.remove('wrong-shake'), 300);
+        if (lives<=0) setTimeout(endGame, 500);
+      }
+    }
+
+    function showFeedback(text, type) {
+      feedbackEl.textContent = text; feedbackEl.className = `feedback ${type} show`;
+      setTimeout(()=>feedbackEl.classList.remove('show'), 1200);
+    }
+    
+    function openEcoFact() {
+      pauseTimer();
+      gameArea.classList.add('blurred');
+      ecoFactText.textContent = getNextFact();
+      ecoFactEl.classList.add('show');
+    }
+    function closeEcoFact() {
+      ecoFactEl.classList.remove('show');
+      gameArea.classList.remove('blurred');
+      if(gameActive && timeLeft > 0) resumeTimer();
+    }
+
+    document.getElementById('eco-fact-close').addEventListener('click', closeEcoFact);
+    ecoFactEl.addEventListener('click', e=>{ if(e.target===ecoFactEl) closeEcoFact(); });
+
+    bins.forEach(bin=>{
+      bin.addEventListener('dragover', e=>{ if(gameActive){e.preventDefault(); e.dataTransfer.dropEffect='move';} });
+      bin.addEventListener('drop', e=>{
+        if(!gameActive) return; e.preventDefault();
+        if(draggedItem){
+          const el = [...itemsArea.children].find(c=>c.dataset.id==draggedItem.id);
+          handleDrop(bin, draggedItem, el);
+        }
+      });
+    });
+
+    muteBtn.addEventListener('click', ()=>{ isMuted=!isMuted; muteBtn.textContent=isMuted?'🔇':'🔊'; });
+    startBtn.addEventListener('click', ()=>{ if(currentLevel){ startScreen.style.display='none'; initGame(); } });
+    restartBtn.addEventListener('click', ()=>{ 
+      gameOverEl.style.display='none'; 
+      startScreen.style.display='flex'; 
+      levelSelector.querySelectorAll('.level-btn').forEach(b=>b.classList.remove('active')); 
+      currentLevel=null; startBtn.disabled=true; levelBadge.textContent='Оберіть рівень'; 
+    });
+    
+    // Факти
+    uploadBtn.addEventListener('click', ()=>factsFile.click());
+    factsFile.addEventListener('change', e=>{
+      const file=e.target.files[0]; if(!file) return;
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        try {
+          const data=JSON.parse(ev.target.result);
+          if(Array.isArray(data) && data.length>0){
+            ecoFactsPool = data.map(f => typeof f==='string' ? f : `${f.icon||'🌱'} ${f.text}`);
+            initFacts(); showFeedback("📁 Факти оновлено!", "correct");
+          } else showFeedback("❌ Масив має містити хоча б 1 факт", "wrong");
+        } catch{ showFeedback("❌ Помилка JSON-формату", "wrong"); }
+      };
+      reader.readAsText(file); factsFile.value='';
+    });
+
+    // Предмети
+    itemsUploadBtn.addEventListener('click', ()=>itemsFile.click());
+    itemsFile.addEventListener('change', e=>{
+      const file=e.target.files[0]; if(!file) return;
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        try {
+          const data=JSON.parse(ev.target.result);
+          if(Array.isArray(data) && data.length>0){
+            const validTypes = ['paper', 'plastic', 'glass', 'organic', 'metal'];
+            activeWasteItems = data.map((item, idx) => ({
+              id: idx + 1,
+              name: item.name || 'Без назви',
+              type: validTypes.includes(item.type) ? item.type : 'paper',
+              icon: item.icon || '❓'
+            }));
+            showFeedback(`🗑️ Завантажено ${activeWasteItems.length} предметів!`, "correct");
+          } else showFeedback("❌ Масив має містити хоча б 1 предмет", "wrong");
+        } catch{ showFeedback("❌ Помилка JSON-формату", "wrong"); }
+      };
+      reader.readAsText(file); itemsFile.value='';
+    });
+
+    function applyTheme(isDark) {
+      document.body.classList.toggle('dark', isDark);
+      localStorage.setItem('eco-sort-theme', isDark ? 'dark' : 'light');
+      themeBtn.textContent = isDark ? '☀️' : '🌓';
+      themeBtn.setAttribute('data-tooltip', isDark ? 'Світла тема' : 'Темна тема');
+    }
+    const savedTheme = localStorage.getItem('eco-sort-theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(savedTheme === 'dark' || (!savedTheme && prefersDark));
+    themeBtn.addEventListener('click', () => applyTheme(!document.body.classList.contains('dark')));
+
+    widgetBtn.addEventListener('click', () => {
+      const url = window.location.href.split('?')[0];
+      const code = `<iframe src="${url}" width="100%" height="800" frameborder="0" style="border-radius:16px; border:1px solid #ccc;" allow="autoplay; encrypted-media"></iframe>`;
+      navigator.clipboard.writeText(code).then(() => showFeedback("📦 Код скопійовано!", "correct"));
+    });
+
+    setupLevelButtons();
+    loadTopScores();
+  </script>
+</body>
+</html>
