@@ -1,0 +1,7 @@
+[
+  {"name": "Назва №1", "type": "paper", "icon": "📰"},
+  {"name": "Назва №2", "type": "plastic", "icon": "🥛"},
+  {"name": "Назва №3", "type": "glass", "icon": "🏺"},
+  {"name": "Назва №4", "type": "organic", "icon": "☕"},
+  {"name": "Назва №5", "type": "metal", "icon": "🥫"}
+]
